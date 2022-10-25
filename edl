@@ -10,7 +10,7 @@ Usage:
     edl [--gpt-num-part-entries=number] [--gpt-part-entry-size=number] [--gpt-part-entry-start-lba=number] [--portname=portname] [--serial]
     edl [--memory=memtype] [--skipstorageinit] [--maxpayload=bytes] [--sectorsize==bytes] [--portname=portname] [--serial]
     edl server [--tcpport=portnumber] [--loader=filename] [--debugmode] [--skipresponse] [--vid=vid] [--pid=pid] [--devicemodel=value] [--skipstorageinit] [--portname=portname] [--serial]
-    edl memorydump [--partitions=partnames] [--debugmode] [--vid=vid] [--pid=pid] [--portname=portname] [--serial]
+    edl memorydump [--partitions=partnames] [--debugmode] [--vid=vid] [--pid=pid] [--portname=portname] [--serial] [--addr=start --len=amnt --out=filename]
     edl printgpt [--memory=memtype] [--lun=lun] [--sectorsize==bytes] [--loader=filename] [--debugmode]  [--skipresponse] [--vid=vid] [--pid=pid] [--skipstorageinit] [--portname=portname] [--serial]
     edl gpt <directory> [--memory=memtype] [--lun=lun] [--genxml] [--loader=filename]  [--skipresponse] [--debugmode] [--vid=vid] [--pid=pid] [--skipstorageinit] [--portname=portname] [--serial]
     edl r <partitionname> <filename> [--memory=memtype] [--sectorsize==bytes] [--lun=lun] [--loader=filename]  [--skipresponse] [--debugmode] [--vid=vid] [--pid=pid] [--skipstorageinit] [--portname=portname] [--serial]
@@ -308,7 +308,24 @@ class main(metaclass=LogBase):
                     if args["memorydump"] or self.cdc.pid==0x900E:
                         time.sleep(0.5)
                         print("Device is in memory dump mode, dumping memory")
-                        if args["--partitions"]:
+                        if args["--addr"]:
+                            if not args["--len"]:
+                                print("Error, must specify --len with --addr")
+                                self.exit();
+                            addr = int(args["--addr"], 16)
+                            len = int(args["--len"], 16)
+                            if not self.sahara.cmd_hello(sahara_mode_t.SAHARA_MODE_MEMORY_DEBUG):
+                                print("Couldn't say hello...")
+                                self.exit()
+                            res = self.sahara.get_rsp()
+                            if not res["cmd"] == cmd_t.SAHARA_64BIT_MEMORY_DEBUG:
+                                cmd = res["cmd"]
+                                print(f"Unexpected response {cmd}")
+                            print(f"Reading {hex(len)} bytes from addr {hex(addr)}")
+                            outf = open(args["--out"], "wb")
+                            self.sahara.read_memory(addr, len, True, outf)
+                            outf.close()
+                        elif args["--partitions"]:
                             self.sahara.debug_mode(args["--partitions"].split(","))
                         else:
                             self.sahara.debug_mode()
